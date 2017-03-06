@@ -25,11 +25,11 @@ config.cancelAllTasksWhileViewDidDisAppear = YES;
 如果需要使用cookie，先设置
 ```ruby
 config.cookieEnabled = YES;
-```,  
+```
 然后再获取cookie的请求里面调用
 ```ruby
 [TTNetworkServer getCookie:<#(NSURLSessionDataTask *)#>]
-```,  
+```
 退出时清除cookie
 ```ruby
 [TTNetworkServer clearCookie]
