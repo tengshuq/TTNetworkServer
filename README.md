@@ -72,20 +72,29 @@ id res3 = res[3];
 end
 ```
 ###取消请求
-1.取消某个URL的请求：```ruby
-[TTNetworkServer cancelTaskWithURL:google]```    
-2.取消所有请求：```ruby
-[TTNetworkServer cancelAllTask]```      
-3.退出VC时取消VC上的所有请求,请设置```ruby
-[TTNetworkConfig standardConfig].cancelAllTasksWhileViewDidDisappear```   
+1.取消某个URL的请求：
+```ruby
+[TTNetworkServer cancelTaskWithURL:google]
+```    
+2.取消所有请求：
+```ruby
+[TTNetworkServer cancelAllTask]
+```      
+3.退出VC时取消VC上的所有请求,请设置
+```ruby
+[TTNetworkConfig standardConfig].cancelAllTasksWhileViewDidDisappear
+```   
 
 ###获取和清除缓存
 ```ruby
-[TTNetworkServer allCacheSize]```    
+[TTNetworkServer allCacheSize]
+```    
 ```ruby
-[TTNetworkServer clearCache]```      
+[TTNetworkServer clearCache]
+```      
 ```ruby
-[TTNetworkServer clearCacheWithProgress:{} completion:{}]```   
+[TTNetworkServer clearCacheWithProgress:{} completion:{}]
+```   
 
 ###监听和获取网络状态
 监听网络状态的变化     
@@ -94,8 +103,8 @@ end
 ```
 获取当前网络状态    
 ```ruby
-[TTNetworkServer networkStatusType]```    
-
+[TTNetworkServer networkStatusType]
+```    
 ###如有BUG，请联系QQ/微信693388621~~
 
 
