@@ -22,14 +22,22 @@ config.cancelAllTasksWhileViewDidDisAppear = YES;
 ```  
 
 ###Cookie的使用
-如果需要使用cookie，先设置```ruby
-config.cookieEnabled = YES;```,  
-然后再获取cookie的请求里面调用```ruby
-[TTNetworkServer getCookie:<#(NSURLSessionDataTask *)#>]```,  
-退出时清除cookie```ruby
-[TTNetworkServer clearCookie]```  
-如果需要设置本地Cookie,请调用```ruby
-[TTNetworkServer setLocalCookieWithCookieName:(NSArray *)names values:(NSArray *)values originURL:(NSString *)url expires:(NSTimeInterval)expires]```  
+如果需要使用cookie，先设置
+```ruby
+config.cookieEnabled = YES;
+```,  
+然后再获取cookie的请求里面调用
+```ruby
+[TTNetworkServer getCookie:<#(NSURLSessionDataTask *)#>]
+```,  
+退出时清除cookie
+```ruby
+[TTNetworkServer clearCookie]
+```  
+如果需要设置本地Cookie,请调用
+```ruby
+[TTNetworkServer setLocalCookieWithCookieName:(NSArray *)names values:(NSArray *)values originURL:(NSString *)url expires:(NSTimeInterval)expires]
+```  
 
 #网络请求
 
