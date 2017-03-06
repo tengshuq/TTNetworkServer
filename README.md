@@ -36,7 +36,8 @@ success:(TTRequestSuccessBlock)success
 failure:(TTRequestFailureBlock)failure]`
 
 ###批量请求
-`static NSString *const ConvertJSONFail = @"https://www.baidu.com";           
+```ruby
+static NSString *const ConvertJSONFail = @"https://www.baidu.com";           
 static NSString *const JSON = @"https://alpha-api.app.net/stream/0/posts/stream/global";        
 static NSString *const JointURL = @"car/brand/query";       
 static NSString *const XML = @"http://ws.webxml.com.cn/WebServices/WeatherWS.asmx/getRegionDataset";         
@@ -52,8 +53,9 @@ id res2 = res[2];
 id res3 = res[3];            
 } failure:^(NSArray<NSError *> *err) {             
 } task:^(NSArray<NSURLSessionDataTask *> *task) {            
-}];        
-`
+}];
+end
+```
 ###取消请求
 1.取消某个URL的请求：`[TTNetworkServer cancelTaskWithURL:google]`    
 2.取消所有请求：`[TTNetworkServer cancelAllTask]`      
