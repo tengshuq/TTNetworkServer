@@ -87,19 +87,15 @@ end
 
 ###获取和清除缓存
 ```ruby
-[TTNetworkServer allCacheSize]
-```    
-```ruby
-[TTNetworkServer clearCache]
-```      
-```ruby
-[TTNetworkServer clearCacheWithProgress:{} completion:{}]
+[TTNetworkServer allCacheSize] //获取缓存
+[TTNetworkServer clearCache]   //清除缓存
+[TTNetworkServer clearCacheWithProgress:{} completion:{}]  //清除缓存回调进度
 ```   
 
 ###监听和获取网络状态
 监听网络状态的变化     
 ```ruby
-[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkStatusChange) name:TTNetworkStatusDidChangeNotification object:nil]
+[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(aSelector) name:TTNetworkStatusDidChangeNotification object:nil]
 ```
 获取当前网络状态    
 ```ruby
