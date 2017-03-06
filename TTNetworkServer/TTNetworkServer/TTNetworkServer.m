@@ -444,7 +444,8 @@ static force_inline void hideNetworkActivityIndicator(){
     cacheResponse ? cacheResponse([_TTNetworkCache cacheForURL:url parameters:parameters]) : nil;
     networkCookieConfig();
     showNetworkActivityIndicator();
-    NSURLSessionDataTask *sessionTask = [[self manager] GET:url parameters:parameters progress:^(NSProgress * _Nonnull downloadProgress) {
+    NSDictionary *newParam = [self addCommonParameters:parameters];
+    NSURLSessionDataTask *sessionTask = [[self manager] GET:url parameters:newParam progress:^(NSProgress * _Nonnull downloadProgress) {
         
     } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
         removeSessionDataTask(task);
@@ -485,7 +486,8 @@ static force_inline void hideNetworkActivityIndicator(){
     cacheResponse ? cacheResponse([_TTNetworkCache cacheForURL:url parameters:parameters]) : nil;
     networkCookieConfig();
     showNetworkActivityIndicator();
-    NSURLSessionDataTask *sessionTask = [[self manager] POST:url parameters:parameters progress:^(NSProgress * _Nonnull uploadProgress) {
+    NSDictionary *newParam = [self addCommonParameters:parameters];
+    NSURLSessionDataTask *sessionTask = [[self manager] POST:url parameters:newParam progress:^(NSProgress * _Nonnull uploadProgress) {
         
     } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
         hideNetworkActivityIndicator();
@@ -517,8 +519,10 @@ static force_inline void hideNetworkActivityIndicator(){
                                progress:(TTRequestProgress)progress
                                 success:(TTRequestSuccessBlock)success
                                 failure:(TTRequestFailureBlock)failure {
+    networkCookieConfig();
     showNetworkActivityIndicator();
-    NSURLSessionDataTask *sessionTask = [_sessionManager POST:url parameters:parameters constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+    NSDictionary *newParam = [self addCommonParameters:parameters];
+    NSURLSessionDataTask *sessionTask = [_sessionManager POST:url parameters:newParam constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
         NSError *error = nil;
         [formData appendPartWithFileURL:[NSURL URLWithString:path] name:name error:&error];
         (failure && error) ? failure(nil,error) : nil;
@@ -561,8 +565,10 @@ static force_inline void hideNetworkActivityIndicator(){
                                  failure:(TTRequestFailureBlock)failure {
     NSAssert(images.count == fileNames.count, @"图片和文件名数量须相等");
     NSAssert(images.count != 0, @"图片不能为空");
+    networkCookieConfig();
     showNetworkActivityIndicator();
-    NSURLSessionDataTask *sessionTask = [_sessionManager POST:url parameters:parameters constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+    NSDictionary *newParam = [self addCommonParameters:parameters];
+    NSURLSessionDataTask *sessionTask = [_sessionManager POST:url parameters:newParam constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
         for (int i = 0; i < images.count; i++) {
             NSData *data;
             if (size) {
@@ -849,7 +855,7 @@ static NSMutableArray *_sessionTaskArray;
 
 - (void)tt_viewDidDisappear:(BOOL)animated{
     [self tt_viewDidDisappear:animated];
-    if ([TTNetworkConfig standardConfig].cancelAllTasksWhileViewDidDisAppear) {
+    if ([TTNetworkConfig standardConfig].cancelAllTasksWhileViewDidDisappear) {
         [self tt_logCancelTask];
         [TTNetworkServer cancelAllTask];
     }

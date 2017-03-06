@@ -40,7 +40,7 @@ typedef NS_ENUM(NSInteger, TTNetworkReponseSerializer) {
 @property (nonatomic, readonly, copy) NSDictionary<NSString *, NSString *> *allHTTPHeaderFields;
 
 ///离开页面时取消当前页面上所有未完成的请求
-@property (nonatomic, assign) BOOL cancelAllTasksWhileViewDidDisAppear;
+@property (nonatomic, assign) BOOL cancelAllTasksWhileViewDidDisappear;
 
 ///是否显示转动的小菊花 默认为YES
 @property (nonatomic, assign) BOOL networkActivityIndicatorEnabled;

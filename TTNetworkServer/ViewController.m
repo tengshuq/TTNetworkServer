@@ -25,8 +25,10 @@ static NSString *const XML = @"http://ws.webxml.com.cn/WebServices/WeatherWS.asm
 - (void)viewDidLoad {
     [super viewDidLoad];
     TTNetworkConfig *config = [TTNetworkConfig standardConfig];
-    config.cancelAllTasksWhileViewDidDisAppear = YES;
+    config.cancelAllTasksWhileViewDidDisappear = YES;
     config.debugLogEnabled = YES;
+    //config.commonParameters = @{@"key1":@"value1"};
+    config.cookieEnabled = YES;
     config.baseURL = @"http://apicloud.mob.com";
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkStatusChange) name:TTNetworkStatusDidChangeNotification object:nil];
 }
