@@ -22,25 +22,33 @@ config.cancelAllTasksWhileViewDidDisAppear = YES;
 ```  
 
 ###Cookie的使用
-如果需要使用cookie，先设置`config.cookieEnabled = YES;`,  
-然后再获取cookie的请求里面调用`[TTNetworkServer getCookie:<#(NSURLSessionDataTask *)#>]`,  
-退出时清除cookie`[TTNetworkServer clearCookie]`  
-如果需要设置本地Cookie,请调用`[TTNetworkServer setLocalCookieWithCookieName:(NSArray *)names values:(NSArray *)values originURL:(NSString *)url expires:(NSTimeInterval)expires]`  
+如果需要使用cookie，先设置```ruby
+config.cookieEnabled = YES;```,  
+然后再获取cookie的请求里面调用```ruby
+[TTNetworkServer getCookie:<#(NSURLSessionDataTask *)#>]```,  
+退出时清除cookie```ruby
+[TTNetworkServer clearCookie]```  
+如果需要设置本地Cookie,请调用```ruby
+[TTNetworkServer setLocalCookieWithCookieName:(NSArray *)names values:(NSArray *)values originURL:(NSString *)url expires:(NSTimeInterval)expires]```  
 
 #网络请求
 
 ###基本请求
-`[TTNetworkServer GET:(NSString *)url
+```ruby
+[TTNetworkServer GET:(NSString *)url
 parameters:(NSDictionary *)parameters
 succeess:(TTRequestSuccessBlock)success
-failure:(TTRequestFailureBlock)failure;]`
+failure:(TTRequestFailureBlock)failure;]
+```
 
 ###带缓存的请求
-`[TTNetworkServer POST:(NSString *)url
+```ruby
+[TTNetworkServer POST:(NSString *)url
 parameters:(NSDictionary *)parameters
 cacheResponse:(TTRequestCache)cacheResponse
 success:(TTRequestSuccessBlock)success
-failure:(TTRequestFailureBlock)failure]`
+failure:(TTRequestFailureBlock)failure]
+```
 
 ###批量请求
 ```ruby
@@ -64,20 +72,29 @@ id res3 = res[3];
 end
 ```
 ###取消请求
-1.取消某个URL的请求：`[TTNetworkServer cancelTaskWithURL:google]`    
-2.取消所有请求：`[TTNetworkServer cancelAllTask]`      
-3.退出VC时取消VC上的所有请求,请设置`[TTNetworkConfig      standardConfig].cancelAllTasksWhileViewDidDisappear`   
+1.取消某个URL的请求：```ruby
+[TTNetworkServer cancelTaskWithURL:google]```    
+2.取消所有请求：```ruby
+[TTNetworkServer cancelAllTask]```      
+3.退出VC时取消VC上的所有请求,请设置```ruby
+[TTNetworkConfig standardConfig].cancelAllTasksWhileViewDidDisappear```   
 
 ###获取和清除缓存
-`[TTNetworkServer allCacheSize]`    
-`[TTNetworkServer clearCache]`      
-`[TTNetworkServer clearCacheWithProgress:{} completion:{}]`   
+```ruby
+[TTNetworkServer allCacheSize]```    
+```ruby
+[TTNetworkServer clearCache]```      
+```ruby
+[TTNetworkServer clearCacheWithProgress:{} completion:{}]```   
 
 ###监听和获取网络状态
 监听网络状态的变化     
-`[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkStatusChange) name:TTNetworkStatusDidChangeNotification object:nil]`    
+```ruby
+[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkStatusChange) name:TTNetworkStatusDidChangeNotification object:nil]
+```
 获取当前网络状态    
-`[TTNetworkServer networkStatusType]`    
+```ruby
+[TTNetworkServer networkStatusType]```    
 
 ###如有BUG，请联系QQ/微信693388621~~
 
