@@ -7,15 +7,19 @@
 
 ###基本设置
 ```ruby
-TTNetworkConfig *config = [TTNetworkConfig standardConfig];    
-config.debugLogEnabled = YES;    
+TTNetworkConfig *config = [TTNetworkConfig standardConfig];
+config.debugLogEnabled = YES;
 config.baseURL = @"http://apicloud.mob.com";
-end```
+```
 
 如果需要为所有的请求添加公共参数，比如时间戳、版本号什么的，使用：  
-``config.commonParameters = @{@"key1":@"value1"};`  
+```ruby
+config.commonParameters = @{@"key1":@"value1"};
+```  
 如果需要在离开当前页面时取消当前页面上的所有请求，使用：  
-``config.cancelAllTasksWhileViewDidDisAppear = YES;``  
+```ruby
+config.cancelAllTasksWhileViewDidDisAppear = YES;
+```  
 
 ###Cookie的使用
 如果需要使用cookie，先设置`config.cookieEnabled = YES;`,  
