@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<songs>
+    <cd country="USA">
+        <title>Empire Burlesque</title>
+        <artist>Bob Dylan</artist>
+        <price>10.90</price>
+    </cd>
+    <cd country="UK">
+        <title>Hide your heart</title>
+        <artist>Bonnie Tyler</artist>
+        <price>9.90</price>
+    </cd>
+    <cd country="USA">
+        <title>Greatest Hits</title>
+        <artist>Dolly Parton</artist>
+        <price>9.90</price>
+    </cd>
+    <cd country="USA">
+        <title>Bad Romance</title>
+        <artist>Lady Gaga</artist>
+        <price>9.90</price>
+    </cd>
+    <cd country="USA">
+        <title>Red</title>
+        <artist>Taylor Swift</artist>
+        <price>19.90</price>
+    </cd>
+    
+     <cd country="USA">
+     <title>Red</title>
+     <artist>Taylor Swift</artist>
+     <price>19.90</price>
+     </cd>
+     
+     
+</songs>
+
