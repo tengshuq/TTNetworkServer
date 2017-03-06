@@ -36,23 +36,23 @@ success:(TTRequestSuccessBlock)success
 failure:(TTRequestFailureBlock)failure]`
 
 ###批量请求
-`static NSString *const ConvertJSONFail = @"https://www.baidu.com";         
+`static NSString *const ConvertJSONFail = @"https://www.baidu.com";           
 static NSString *const JSON = @"https://alpha-api.app.net/stream/0/posts/stream/global";        
-static NSString *const JointURL = @"car/brand/query";           
-static NSString *const XML = @"http://ws.webxml.com.cn/WebServices/WeatherWS.asmx/getRegionDataset";                
+static NSString *const JointURL = @"car/brand/query";       
+static NSString *const XML = @"http://ws.webxml.com.cn/WebServices/WeatherWS.asmx/getRegionDataset";         
 TTNetworkServer *server1 = [TTNetworkServer addGET:ConvertJSONFail parameters:nil cacheResponse:nil];           
-TTNetworkServer *server2 = [TTNetworkServer addGET:JSON parameters:nil cacheResponse:nil];          
-TTNetworkServer *server3 = [TTNetworkServer addGET:JointURL parameters:@{@"key":@"112fcd924b710"} cacheResponse:nil];           
-TTNetworkServer *server4 = [TTNetworkServer addGET:XML parameters:nil cacheResponse:nil];       
-[TTNetworkServer startBatchRequest:@[server1,server2,server3,server4] cacheResponse:nil success:^(NSArray<id> *res) {       
-//返回的数据顺序为加入请求的顺序           
-id res0 = res[0];               
-id res1 = res[1];               
+TTNetworkServer *server2 = [TTNetworkServer addGET:JSON parameters:nil cacheResponse:nil];       
+TTNetworkServer *server3 = [TTNetworkServer addGET:JointURL parameters:@{@"key":@"112fcd924b710"} cacheResponse:nil];             
+TTNetworkServer *server4 = [TTNetworkServer addGET:XML parameters:nil cacheResponse:nil];      
+[TTNetworkServer startBatchRequest:@[server1,server2,server3,server4] cacheResponse:nil     success:^(NSArray<id> *res) {    
+//返回的数据顺序为加入请求的顺序     
+id res0 = res[0];             
+id res1 = res[1];             
 id res2 = res[2];             
-id res3 = res[3];           
+id res3 = res[3];            
 } failure:^(NSArray<NSError *> *err) {             
 } task:^(NSArray<NSURLSessionDataTask *> *task) {            
-}];          
+}];        
 `
 ###取消请求
 1.取消某个URL的请求：`[TTNetworkServer cancelTaskWithURL:google]`    
