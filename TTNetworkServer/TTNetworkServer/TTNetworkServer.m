@@ -219,9 +219,9 @@ static NSString *const NetworkResponseCache = @"TTNetworkResponseCache";
 #pragma mark - TTNetworkServer
 #pragma mark -
 static NSString *const TTNetworkDefaultCooke = @"TTNetworkDefaultCooke";
-static AFHTTPSessionManager *_sessionManager;
 static NSMutableArray <NSURLSessionTask *>*_allSessionTask;
 static pthread_mutex_t _mutexLock;
+//static AFHTTPSessionManager *_sessionManager;
 static TTNetworkStatusType _currentNetworkStatus;
 
 @implementation TTNetworkServer
@@ -239,17 +239,21 @@ static TTNetworkStatusType _currentNetworkStatus;
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkStatusChanged:) name:AFNetworkingReachabilityDidChangeNotification object:nil];
 }
 
-+ (AFHTTPSessionManager *)manager {
-    
++ (AFHTTPSessionManager *)sessionManager {
+    //单例的使用 http://blog.csdn.net/zhzmaren/article/details/53021384
+    static AFHTTPSessionManager *_sessionManager = nil;
     TTNetworkConfig *config = [TTNetworkConfig standardConfig];
-    _sessionManager = [[AFHTTPSessionManager alloc] initWithBaseURL:[NSURL URLWithString:config.baseURL]];
-    _sessionManager.requestSerializer.timeoutInterval = config.timeoutInterval;
-    [config.allHTTPHeaderFields enumerateKeysAndObjectsUsingBlock:^(NSString * _Nonnull key, NSString * _Nonnull obj, BOOL * _Nonnull stop) {
-        [_sessionManager.requestSerializer setValue:obj forHTTPHeaderField:key];
-    }];
-    _sessionManager.requestSerializer = config.requestSerializer == 0 ? [AFHTTPRequestSerializer serializer] : [AFJSONRequestSerializer serializer];
-    _sessionManager.responseSerializer = [AFHTTPResponseSerializer serializer];
-    _sessionManager.responseSerializer.acceptableContentTypes = [NSSet setWithObjects:@"application/json", @"text/html", @"text/json", @"text/plain", @"text/javascript", @"text/xml", @"image/*", nil];
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        _sessionManager = [[AFHTTPSessionManager alloc] initWithBaseURL:[NSURL URLWithString:config.baseURL]];
+        _sessionManager.responseSerializer = [AFHTTPResponseSerializer serializer];
+        _sessionManager.responseSerializer.acceptableContentTypes = [NSSet setWithObjects:@"application/json", @"text/html", @"text/json", @"text/plain", @"text/javascript", @"text/xml", @"image/*", nil];
+        _sessionManager.requestSerializer.timeoutInterval = config.timeoutInterval;
+        [config.allHTTPHeaderFields enumerateKeysAndObjectsUsingBlock:^(NSString * _Nonnull key, NSString * _Nonnull obj, BOOL * _Nonnull stop) {
+            [_sessionManager.requestSerializer setValue:obj forHTTPHeaderField:key];
+        }];
+        _sessionManager.requestSerializer = config.requestSerializer == 0 ? [AFHTTPRequestSerializer serializer] : [AFJSONRequestSerializer serializer];
+    });
     return _sessionManager;
 }
 
@@ -337,7 +341,7 @@ static force_inline void setCookie(){
 
 ///取消请求
 + (void)cancelTaskWithURL:(NSString *)URL {
-    if (!URL) return;
+    if (!URL || _allSessionTask.count == 0) return;
     pthread_mutex_lock(&_mutexLock);
     [_allSessionTask enumerateObjectsUsingBlock:^(NSURLSessionTask * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
         if ([obj.currentRequest.URL.absoluteString containsString:URL]) {
@@ -350,6 +354,7 @@ static force_inline void setCookie(){
 }
 ///取消所有请求
 + (void)cancelAllTask {
+    if (_allSessionTask.count == 0) return;
     pthread_mutex_lock(&_mutexLock);
     [_allSessionTask enumerateObjectsUsingBlock:^(NSURLSessionTask * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
         [obj cancel];
@@ -445,7 +450,7 @@ static force_inline void hideNetworkActivityIndicator(){
     networkCookieConfig();
     showNetworkActivityIndicator();
     NSDictionary *newParam = [self addCommonParameters:parameters];
-    NSURLSessionDataTask *sessionTask = [[self manager] GET:url parameters:newParam progress:^(NSProgress * _Nonnull downloadProgress) {
+    NSURLSessionDataTask *sessionTask = [[self sessionManager] GET:url parameters:newParam progress:^(NSProgress * _Nonnull downloadProgress) {
         
     } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
         removeSessionDataTask(task);
@@ -487,7 +492,7 @@ static force_inline void hideNetworkActivityIndicator(){
     networkCookieConfig();
     showNetworkActivityIndicator();
     NSDictionary *newParam = [self addCommonParameters:parameters];
-    NSURLSessionDataTask *sessionTask = [[self manager] POST:url parameters:newParam progress:^(NSProgress * _Nonnull uploadProgress) {
+    NSURLSessionDataTask *sessionTask = [[self sessionManager] POST:url parameters:newParam progress:^(NSProgress * _Nonnull uploadProgress) {
         
     } success:^(NSURLSessionDataTask * _Nonnull task, id  _Nullable responseObject) {
         hideNetworkActivityIndicator();
@@ -522,7 +527,7 @@ static force_inline void hideNetworkActivityIndicator(){
     networkCookieConfig();
     showNetworkActivityIndicator();
     NSDictionary *newParam = [self addCommonParameters:parameters];
-    NSURLSessionDataTask *sessionTask = [_sessionManager POST:url parameters:newParam constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+    NSURLSessionDataTask *sessionTask = [[self sessionManager] POST:url parameters:newParam constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
         NSError *error = nil;
         [formData appendPartWithFileURL:[NSURL URLWithString:path] name:name error:&error];
         (failure && error) ? failure(nil,error) : nil;
@@ -568,7 +573,7 @@ static force_inline void hideNetworkActivityIndicator(){
     networkCookieConfig();
     showNetworkActivityIndicator();
     NSDictionary *newParam = [self addCommonParameters:parameters];
-    NSURLSessionDataTask *sessionTask = [_sessionManager POST:url parameters:newParam constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+    NSURLSessionDataTask *sessionTask = [[self sessionManager] POST:url parameters:newParam constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
         for (int i = 0; i < images.count; i++) {
             NSData *data;
             if (size) {
@@ -831,6 +836,9 @@ static NSMutableArray *_sessionTaskArray;
 
 #pragma mark - 退出控制器时取消网络请求
 #pragma mark -
+
+static BOOL _cancelAllTasksWhileViewDidDisappear;
+
 @implementation UIViewController (TTNetwork)
 
 + (void)load {
@@ -855,10 +863,15 @@ static NSMutableArray *_sessionTaskArray;
 
 - (void)tt_viewDidDisappear:(BOOL)animated{
     [self tt_viewDidDisappear:animated];
-    if ([TTNetworkConfig standardConfig].cancelAllTasksWhileViewDidDisappear) {
+    if (_cancelAllTasksWhileViewDidDisappear) {
         [self tt_logCancelTask];
+        _cancelAllTasksWhileViewDidDisappear = NO;
         [TTNetworkServer cancelAllTask];
     }
+}
+
+- (void)cancelAllTasksWhileViewDidDisappear:(BOOL)cancel {
+    _cancelAllTasksWhileViewDidDisappear = cancel;
 }
 
 - (void)tt_logCancelTask {

@@ -20,6 +20,7 @@ static NSString *const baidu = @"https://www.baidu.com";
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    [self cancelAllTasksWhileViewDidDisappear:YES];
 }
 
 - (void)viewWillAppear:(BOOL)animated {

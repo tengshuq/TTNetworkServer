@@ -25,7 +25,6 @@ static NSString *const XML = @"http://ws.webxml.com.cn/WebServices/WeatherWS.asm
 - (void)viewDidLoad {
     [super viewDidLoad];
     TTNetworkConfig *config = [TTNetworkConfig standardConfig];
-    config.cancelAllTasksWhileViewDidDisappear = YES;
     config.debugLogEnabled = YES;
     //config.commonParameters = @{@"key1":@"value1"};
     config.cookieEnabled = YES;
@@ -39,9 +38,10 @@ static NSString *const XML = @"http://ws.webxml.com.cn/WebServices/WeatherWS.asm
 }
 
 - (void)networkStatusChange {
-    NSLog(@"当前网络状态：%ld",[TTNetworkServer networkStatusType]);
+    NSLog(@"当前网络状态：%ld",(long)[TTNetworkServer networkStatusType]);
 }
 
+//请求带缓存
 - (IBAction)baseRequest:(UIButton *)sender {
     [TTNetworkServer GET:JointURL parameters:@{@"key":@"112fcd924b710"} cacheResponse:^(NSDictionary *responseCache) {
         NSLog(@"缓存的数据%@",responseCache);
@@ -52,17 +52,13 @@ static NSString *const XML = @"http://ws.webxml.com.cn/WebServices/WeatherWS.asm
     }];
 }
 
+//请求不带缓存
 - (IBAction)loadData:(UIButton *)sender {
-    
-    //取消前几次请求，保留最后一次请求
-    for (int i = 0; i < 5; i++) {
-        if (_task) {
-            [TTNetworkServer cancelTaskWithURL:ConvertJSONFail];
-        }
-        _task = [self requestCompletion:^{
-            NSLog(@"%d",i);
-        }];
-    }
+    [TTNetworkServer GET:JointURL parameters:@{@"key":@"112fcd924b710"} cacheResponse:nil succeess:^(NSURLSessionDataTask *task, NSDictionary *responseObject) {
+        NSLog(@"网络获取的数据 %@",responseObject);
+    } failure:^(NSURLSessionDataTask *task, NSError *error) {
+        
+    }];
 }
 
 - (IBAction)batchRequest:(UIButton *)sender {
@@ -80,14 +76,6 @@ static NSString *const XML = @"http://ws.webxml.com.cn/WebServices/WeatherWS.asm
         NSLog(@"%@\n%@\n%@\n%@",err[0].localizedDescription,err[1].localizedDescription,err[2].localizedDescription,err[3].localizedDescription);
     } task:^(NSArray<NSURLSessionDataTask *> *task) {
         NSLog(@"%@\n%@\n%@\n%@",task[0].currentRequest.URL,task[1].currentRequest.URL,task[2].currentRequest.URL,task[3].currentRequest.URL);
-    }];
-}
-
-- (NSURLSessionTask *)requestCompletion:(void(^)())handler {
-    return [TTNetworkServer GET:ConvertJSONFail parameters:nil succeess:^(NSURLSessionDataTask *task, id responseObject) {
-        handler();
-    } failure:^(NSURLSessionDataTask *task, NSError *error) {
-        
     }];
 }
 

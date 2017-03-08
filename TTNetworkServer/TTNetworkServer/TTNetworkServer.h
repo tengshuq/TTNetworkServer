@@ -265,5 +265,8 @@ typedef void (^TTRequestProgress)(NSProgress *progress);
 
 @interface UIViewController (TTNetwork)
 
+///离开页面时取消当前页面上所有未完成的请求,默认为NO
+- (void)cancelAllTasksWhileViewDidDisappear:(BOOL)cancel;
+
 @end
 

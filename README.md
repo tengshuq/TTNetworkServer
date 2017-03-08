@@ -2,11 +2,12 @@
 对AFN的常用方法封装，支持缓存、批量请求、Cookie设置、返回数据自动转换为JSON（包括XML）、图片压缩上传等...
 
 #基本用法
-依赖的三方框架有AFNetworking、YYCache、MBProgressHUD，使用时请保证项目中含有这三个框架~
+依赖的三方框架有AFNetworking、YYCache、MBProgressHUD，使用时请保证项目中含有这三个框架~   
 使用时`#import "TTNetworkServer.h"`
 
 ###基本设置
 ```ruby
+//
 TTNetworkConfig *config = [TTNetworkConfig standardConfig];
 config.debugLogEnabled = YES;
 config.baseURL = @"http://apicloud.mob.com";
@@ -16,17 +17,13 @@ config.baseURL = @"http://apicloud.mob.com";
 ```ruby
 config.commonParameters = @{@"key1":@"value1"};
 ```  
-如果需要在离开当前页面时取消当前页面上的所有请求，使用：  
-```ruby
-config.cancelAllTasksWhileViewDidDisAppear = YES;
-```  
 
 ###Cookie的使用
 如果需要使用cookie，先设置
 ```ruby
 config.cookieEnabled = YES;
 ```
-然后再获取cookie的请求里面调用
+然后在获取cookie的请求里面调用
 ```ruby
 [TTNetworkServer getCookie:<#(NSURLSessionDataTask *)#>]
 ```
@@ -43,19 +40,22 @@ config.cookieEnabled = YES;
 
 ###基本请求
 ```ruby
-[TTNetworkServer GET:(NSString *)url
-parameters:(NSDictionary *)parameters
-succeess:(TTRequestSuccessBlock)success
-failure:(TTRequestFailureBlock)failure;]
+[TTNetworkServer GET:JointURL parameters:@{@"key":@"112fcd924b710"} cacheResponse:nil succeess:^(NSURLSessionDataTask *task, NSDictionary *responseObject) {
+NSLog(@"网络获取的数据 %@",responseObject);
+} failure:^(NSURLSessionDataTask *task, NSError *error) {
+
+}];
 ```
 
 ###带缓存的请求
 ```ruby
-[TTNetworkServer POST:(NSString *)url
-parameters:(NSDictionary *)parameters
-cacheResponse:(TTRequestCache)cacheResponse
-success:(TTRequestSuccessBlock)success
-failure:(TTRequestFailureBlock)failure]
+[TTNetworkServer GET:JointURL parameters:@{@"key":@"112fcd924b710"} cacheResponse:^(NSDictionary *responseCache) {
+NSLog(@"缓存的数据%@",responseCache);
+} succeess:^(NSURLSessionDataTask *task, NSDictionary *responseObject) {
+NSLog(@"网络获取的数据 %@",responseObject);
+} failure:^(NSURLSessionDataTask *task, NSError *error) {
+
+}];
 ```
 
 ###批量请求
@@ -77,7 +77,6 @@ id res3 = res[3];
 } failure:^(NSArray<NSError *> *err) {             
 } task:^(NSArray<NSURLSessionDataTask *> *task) {            
 }];
-end
 ```
 ###取消请求
 1.取消某个URL的请求：
@@ -88,9 +87,9 @@ end
 ```ruby
 [TTNetworkServer cancelAllTask]
 ```      
-3.退出VC时取消VC上的所有请求,请设置
+3.退出VC时取消VC上的所有请求，在VC里面调用
 ```ruby
-[TTNetworkConfig standardConfig].cancelAllTasksWhileViewDidDisappear
+[self cancelAllTasksWhileViewDidDisappear:YES];
 ```   
 
 ###获取和清除缓存
