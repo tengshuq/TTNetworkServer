@@ -12,6 +12,7 @@
 #import "YYCache.h"
 #import <pthread/pthread.h>
 #import <objc/runtime.h>
+#include <CommonCrypto/CommonCrypto.h>
 
 #define force_inline __inline__ __attribute__((always_inline))
 
@@ -20,15 +21,36 @@ void TTLog(NSString *format, ...) {
     if (![TTNetworkConfig standardConfig].debugLogEnabled) {
         return;
     }
-    va_list argptr;
-    va_start(argptr, format);
-    NSLogv(format, argptr);
-    va_end(argptr);
+    va_list args;
+    va_start(args, format);
+    NSString *string = [[NSString alloc] initWithFormat:format arguments:args];
+    va_end(args);
+    
+    NSString *strFormat = [NSString stringWithFormat:@"%@",string];
+    NSLog(@"%@", strFormat);
+    
 #endif
 }
 NSString *const TTNetworkStatusDidChangeNotification = @"AFNetworkingReachabilityDidChangeNotification";
 
+@interface NSString (AddForMD5)
+@end
+@implementation NSString (AddForMD5)
 
+- (NSString *)tt_md5String {
+    NSData *data = [self dataUsingEncoding:NSUTF8StringEncoding];
+    unsigned char result[CC_MD2_DIGEST_LENGTH];
+    CC_MD2(data.bytes, (CC_LONG)data.length, result);
+    return [NSString stringWithFormat:
+            @"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+            result[0], result[1], result[2], result[3],
+            result[4], result[5], result[6], result[7],
+            result[8], result[9], result[10], result[11],
+            result[12], result[13], result[14], result[15]
+            ];
+}
+
+@end
 
 #pragma mark - 来自YYKit的XML解析
 #pragma mark -
@@ -199,7 +221,7 @@ static NSString *const NetworkResponseCache = @"TTNetworkResponseCache";
 
 //设置缓存
 + (void)setCache:(id)httpData withURL:(NSString *)url parameters:(NSDictionary *)para {
-    NSString *key = [self cacheKeyWithURL:url parameters:para];
+    NSString *key = [self cacheKeyWithURL:url parameters:para] ;
     [[self standardCache] setObject:httpData forKey:key withBlock:nil];
 }
 //获取缓存
@@ -208,9 +230,10 @@ static NSString *const NetworkResponseCache = @"TTNetworkResponseCache";
     return [[self standardCache] objectForKey:key];
 }
 + (NSString *)cacheKeyWithURL:(NSString *)url parameters:(NSDictionary *)para {
-    if (!para) return url;
+    if (!para) return [url tt_md5String];
     NSData *paraData = [NSJSONSerialization dataWithJSONObject:para options:NSJSONWritingPrettyPrinted error:nil];
-    NSString *key = [[NSString alloc] initWithData:paraData encoding:NSUTF8StringEncoding];
+    NSString *paraString = [[NSString alloc] initWithData:paraData encoding:NSUTF8StringEncoding];
+    NSString *key = [[NSString stringWithFormat:@"%@%@",url,paraString] tt_md5String];
     return key;
 }
 
@@ -221,7 +244,7 @@ static NSString *const NetworkResponseCache = @"TTNetworkResponseCache";
 static NSString *const TTNetworkDefaultCooke = @"TTNetworkDefaultCooke";
 static NSMutableArray <NSURLSessionTask *>*_allSessionTask;
 static pthread_mutex_t _mutexLock;
-//static AFHTTPSessionManager *_sessionManager;
+static AFHTTPSessionManager *_sessionManager;
 static TTNetworkStatusType _currentNetworkStatus;
 
 @implementation TTNetworkServer
@@ -237,10 +260,16 @@ static TTNetworkStatusType _currentNetworkStatus;
     pthread_mutex_init(&_mutexLock, NULL);
     [[AFNetworkReachabilityManager sharedManager] startMonitoring];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkStatusChanged:) name:AFNetworkingReachabilityDidChangeNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(sessionInvalidate) name:AFURLSessionDidInvalidateNotification object:nil];
+}
+
++ (void)sessionInvalidate {
+    _sessionManager = nil;
 }
 
 + (AFHTTPSessionManager *)sessionManager {
     //单例的使用 http://blog.csdn.net/zhzmaren/article/details/53021384
+    
     static AFHTTPSessionManager *_sessionManager = nil;
     TTNetworkConfig *config = [TTNetworkConfig standardConfig];
     static dispatch_once_t onceToken;
@@ -253,6 +282,7 @@ static TTNetworkStatusType _currentNetworkStatus;
             [_sessionManager.requestSerializer setValue:obj forHTTPHeaderField:key];
         }];
         _sessionManager.requestSerializer = config.requestSerializer == 0 ? [AFHTTPRequestSerializer serializer] : [AFJSONRequestSerializer serializer];
+        
     });
     return _sessionManager;
 }
@@ -314,9 +344,9 @@ static force_inline void setCookie(){
 #endif
     for (int i = 0; i < names.count; i++) {
         NSDictionary *property = @{NSHTTPCookieName :names[i],
-                              NSHTTPCookieValue : values[i],
-                              NSHTTPCookieOriginURL : url,
-                              NSHTTPCookieExpires : [NSDate dateWithTimeIntervalSinceNow:expires]};
+                                   NSHTTPCookieValue : values[i],
+                                   NSHTTPCookieOriginURL : url,
+                                   NSHTTPCookieExpires : [NSDate dateWithTimeIntervalSinceNow:expires]};
         NSHTTPCookie *cookie = [NSHTTPCookie cookieWithProperties:property];
         [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookie:cookie];
     }
@@ -379,6 +409,12 @@ static force_inline void networkCookieConfig(){
     [TTNetworkConfig standardConfig].cookieEnabled ? setCookie() : nil;
 }
 
+static force_inline void networkHeaderValuesConfig() {
+    [[TTNetworkConfig standardConfig].allHTTPHeaderFields enumerateKeysAndObjectsUsingBlock:^(NSString * _Nonnull key, NSString * _Nonnull obj, BOOL * _Nonnull stop) {
+        [[TTNetworkServer sessionManager].requestSerializer setValue:obj forHTTPHeaderField:key];
+    }];
+}
+
 static force_inline void showNetworkActivityIndicator(){
     [AFNetworkActivityIndicatorManager sharedManager].enabled = [TTNetworkConfig standardConfig].networkActivityIndicatorEnabled;
 }
@@ -429,6 +465,11 @@ static force_inline void hideNetworkActivityIndicator(){
     if ([NSJSONSerialization isValidJSONObject:dic]) {
         return dic;
     }
+    // 这样的 https://stackoverflow.com/questions/16961025/nsjsonserialization-nsjsonreadingallowfragments-reading
+    if (![NSJSONSerialization isValidJSONObject:data]) {
+        NSString *res = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingAllowFragments error:nil];
+        return @{@"result":res ? : @"没有可用的数据"};
+    }
     TTLog(@"%@,返回的数据无法转换为可用JSON格式，请检查",task.currentRequest.URL);
     return @{@"result":response};
 }
@@ -448,6 +489,7 @@ static force_inline void hideNetworkActivityIndicator(){
     
     cacheResponse ? cacheResponse([_TTNetworkCache cacheForURL:url parameters:parameters]) : nil;
     networkCookieConfig();
+    networkHeaderValuesConfig();
     showNetworkActivityIndicator();
     NSDictionary *newParam = [self addCommonParameters:parameters];
     NSURLSessionDataTask *sessionTask = [[self sessionManager] GET:url parameters:newParam progress:^(NSProgress * _Nonnull downloadProgress) {
@@ -458,17 +500,17 @@ static force_inline void hideNetworkActivityIndicator(){
         NSDictionary *result = [self convertResponse:responseObject withTask:task];
         cacheResponse ? [_TTNetworkCache setCache:result withURL:url parameters:parameters] : nil;
         success ? success(task, result) : nil;
-        [self logRequestSuccess:task para:parameters response:result];
+        [self logRequestSuccess:task para:newParam response:result];
         
     } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
         removeSessionDataTask(task);
         hideNetworkActivityIndicator();
         if (error.code == -999 ) {
-            [self logRequestCancel:task para:parameters];
+            [self logRequestCancel:task para:newParam];
             return ;
         } else {
             failure ? failure(task,error) : nil;
-            [self logRequestFailure:task para:parameters error:error];
+            [self logRequestFailure:task para:newParam error:error];
         }
     }];
     addSessionDataTask(sessionTask);
@@ -476,20 +518,21 @@ static force_inline void hideNetworkActivityIndicator(){
 }
 
 + (NSURLSessionTask *)POST:(NSString *)url
-                    parameters:(NSDictionary *)parameters
-                       success:(TTRequestSuccessBlock)success
-                       failure:(TTRequestFailureBlock)failure {
+                parameters:(NSDictionary *)parameters
+                   success:(TTRequestSuccessBlock)success
+                   failure:(TTRequestFailureBlock)failure {
     return [self POST:url parameters:parameters cacheResponse:nil success:success failure:failure];
 }
 
 + (NSURLSessionTask *)POST:(NSString *)url
-                    parameters:(NSDictionary *)parameters
-                 cacheResponse:(TTRequestCache)cacheResponse
-                       success:(TTRequestSuccessBlock)success
-                       failure:(TTRequestFailureBlock)failure {
+                parameters:(NSDictionary *)parameters
+             cacheResponse:(TTRequestCache)cacheResponse
+                   success:(TTRequestSuccessBlock)success
+                   failure:(TTRequestFailureBlock)failure {
     
     cacheResponse ? cacheResponse([_TTNetworkCache cacheForURL:url parameters:parameters]) : nil;
     networkCookieConfig();
+    networkHeaderValuesConfig();
     showNetworkActivityIndicator();
     NSDictionary *newParam = [self addCommonParameters:parameters];
     NSURLSessionDataTask *sessionTask = [[self sessionManager] POST:url parameters:newParam progress:^(NSProgress * _Nonnull uploadProgress) {
@@ -500,17 +543,17 @@ static force_inline void hideNetworkActivityIndicator(){
         NSDictionary *result = [self convertResponse:responseObject withTask:task];
         cacheResponse ? [_TTNetworkCache setCache:result withURL:url parameters:parameters] : nil;
         success ? success(task, result) : nil;
-        [self logRequestSuccess:task para:parameters response:result];
+        [self logRequestSuccess:task para:newParam response:result];
         
     } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
         removeSessionDataTask(task);
         hideNetworkActivityIndicator();
         if (error.code == -999) {
-            [self logRequestCancel:task para:parameters];
+            [self logRequestCancel:task para:newParam];
             return ;
         } else {
             failure ? failure(task,error) : nil;
-            [self logRequestFailure:task para:parameters error:error];
+            [self logRequestFailure:task para:newParam error:error];
         }
     }];
     addSessionDataTask(sessionTask);
@@ -525,6 +568,7 @@ static force_inline void hideNetworkActivityIndicator(){
                                 success:(TTRequestSuccessBlock)success
                                 failure:(TTRequestFailureBlock)failure {
     networkCookieConfig();
+    networkHeaderValuesConfig();
     showNetworkActivityIndicator();
     NSDictionary *newParam = [self addCommonParameters:parameters];
     NSURLSessionDataTask *sessionTask = [[self sessionManager] POST:url parameters:newParam constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
@@ -541,17 +585,17 @@ static force_inline void hideNetworkActivityIndicator(){
         NSDictionary *result = [self convertResponse:responseObject withTask:task];
         success ? success(task, result) : nil;
         removeSessionDataTask(task);
-        [self logRequestSuccess:task para:parameters response:result];
+        [self logRequestSuccess:task para:newParam response:result];
         
     } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
         removeSessionDataTask(task);
         hideNetworkActivityIndicator();
         if (error.code == -999 ) {
-            [self logRequestCancel:task para:parameters];
+            [self logRequestCancel:task para:newParam];
             return ;
         } else {
             failure ? failure(task,error) : nil;
-            [self logRequestFailure:task para:parameters error:error];
+            [self logRequestFailure:task para:newParam error:error];
         }
     }];
     addSessionDataTask(sessionTask);
@@ -560,7 +604,7 @@ static force_inline void hideNetworkActivityIndicator(){
 
 + (NSURLSessionTask *)uploadImageWithURL:(NSString *)url
                               parameters:(NSDictionary *)parameters
-                                    name:(NSString *)name
+                                    name:(NSArray *)names
                              maxFileSize:(CGFloat)size
                                   images:(NSArray <UIImage *>*)images
                                fileNames:(NSArray <NSString *>*)fileNames
@@ -571,18 +615,47 @@ static force_inline void hideNetworkActivityIndicator(){
     NSAssert(images.count == fileNames.count, @"图片和文件名数量须相等");
     NSAssert(images.count != 0, @"图片不能为空");
     networkCookieConfig();
+    networkHeaderValuesConfig();
     showNetworkActivityIndicator();
     NSDictionary *newParam = [self addCommonParameters:parameters];
-    NSURLSessionDataTask *sessionTask = [[self sessionManager] POST:url parameters:newParam constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
-        for (int i = 0; i < images.count; i++) {
-            NSData *data;
-            if (size) {
-                data = [self zipImageWithImage:images[i] maxSize:size];
-            } else {
-                data = UIImageJPEGRepresentation(images[i],1);
+    __block NSURLSessionDataTask *sessionTask;
+    NSMutableArray *mArr = @[].mutableCopy;
+    if (size && size > 0) {
+        dispatch_group_t group = dispatch_group_create();
+        dispatch_group_async(group, dispatch_get_global_queue(0, 0), ^{
+            for (int i = 0; i < images.count; i++) {
+                dispatch_group_enter(group);
+                NSData *data = [self zipImageWithImage:images[i] maxSize:size];
+                pthread_mutex_lock(&_mutexLock);
+                [mArr addObject:data];
+                pthread_mutex_unlock(&_mutexLock);
+                dispatch_group_leave(group);
             }
-            
-            [formData appendPartWithFileData:data name:name fileName:fileNames[i] mimeType:imageType ? : [NSString stringWithFormat:@"image/jpg"]];
+        });
+        dispatch_group_notify(group, dispatch_get_global_queue(0, 0), ^{
+            sessionTask = [self _uploadImageWithURL:url para:newParam name:names images:mArr fileNames:fileNames imageType:imageType progress:progress success:success failure:failure];
+            addSessionDataTask(sessionTask);
+        });
+    } else {
+        sessionTask = [self _uploadImageWithURL:url para:newParam name:names images:mArr fileNames:fileNames imageType:imageType progress:progress success:success failure:failure];
+        addSessionDataTask(sessionTask);
+    }
+    
+    return sessionTask;
+}
+
++ (__kindof NSURLSessionTask *)_uploadImageWithURL:(NSString *)url
+                                              para:(NSDictionary *)para
+                                              name:(NSArray *)names
+                                            images:(NSArray <NSData *>*)images
+                                         fileNames:(NSArray <NSString *>*)fileNames
+                                         imageType:(NSString *)imageType
+                                          progress:(TTRequestProgress)progress
+                                           success:(TTRequestSuccessBlock)success
+                                           failure:(TTRequestFailureBlock)failure{
+    NSURLSessionDataTask *sessionTask = [[self sessionManager] POST:url parameters:para constructingBodyWithBlock:^(id<AFMultipartFormData>  _Nonnull formData) {
+        for (int i = 0; i < images.count; i++) {
+            [formData appendPartWithFileData:images[i] name:names[i] fileName:fileNames[i] mimeType:imageType ? : [NSString stringWithFormat:@"image/jpg"]];
         }
     } progress:^(NSProgress * _Nonnull uploadProgress) {
         dispatch_sync(dispatch_get_main_queue(), ^{
@@ -593,20 +666,19 @@ static force_inline void hideNetworkActivityIndicator(){
         removeSessionDataTask(task);
         NSDictionary *result = [self convertResponse:responseObject withTask:task];
         success ? success(task, result) : nil;
-        [self logRequestSuccess:task para:parameters response:result];
+        [self logRequestSuccess:task para:para response:result];
         
     } failure:^(NSURLSessionDataTask * _Nullable task, NSError * _Nonnull error) {
         removeSessionDataTask(task);
         hideNetworkActivityIndicator();
         if (error.code == -999 ) {
-            [self logRequestCancel:task para:parameters];
+            [self logRequestCancel:task para:para];
             return ;
         } else {
             failure ? failure(task,error) : nil;
-            [self logRequestFailure:task para:parameters error:error];
+            [self logRequestFailure:task para:para error:error];
         }
     }];
-    addSessionDataTask(sessionTask);
     return sessionTask;
 }
 
@@ -683,8 +755,8 @@ static NSMutableArray *_sessionTaskArray;
 - (id)cacheResponse {
     return objc_getAssociatedObject(self, _cmd);
 }
-- (void)setCacheResponse:(id)cache {
-    objc_setAssociatedObject(self, @selector(cacheResponse), cache, OBJC_ASSOCIATION_ASSIGN);
+- (void)setCacheResponse:(TTRequestCache)cache {
+    objc_setAssociatedObject(self, @selector(cacheResponse), cache, OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
 
 + (TTNetworkServer *)addGET:(NSString *)url parameters:(NSDictionary *)parameters cacheResponse:(TTRequestCache)cacheResponse {
@@ -722,7 +794,7 @@ static NSMutableArray *_sessionTaskArray;
     return _sessionTaskArray;
 }
 
-+ (TTNetworkServer *)serverWithURL:(NSString *)url parameters:(NSDictionary *)para cacheResponse:(id)cache method:(NSString *)method {
++ (TTNetworkServer *)serverWithURL:(NSString *)url parameters:(NSDictionary *)para cacheResponse:(TTRequestCache)cache method:(NSString *)method {
     pthread_mutex_lock(&_mutexLock);
     TTNetworkServer *server = [[TTNetworkServer alloc] init];
     server.urlString = url;
@@ -735,9 +807,8 @@ static NSMutableArray *_sessionTaskArray;
 }
 
 + (void)startBatchRequest:(NSArray<TTNetworkServer *> *)request
-            cacheResponse:(void(^)(NSArray<id> *))cacheResponse
                   success:(void(^)(NSArray<id> *))success
-                  failure:(void(^)(NSArray<NSError *> *))failure
+                  failure:(void(^)(NSArray<id> *))failure
                      task:(void(^)(NSArray<NSURLSessionDataTask *> *))task{
 #if DEBUG
     NSAssert(request.count > 1 , @"至少含有2个以上请求");
@@ -748,22 +819,15 @@ static NSMutableArray *_sessionTaskArray;
     if (onRequest) {
         return;
     }
-    NSMutableArray *cacheArr = @[].mutableCopy;
-    for (int i = 0; i < request.count; i++) {
-        TTNetworkServer *server = request[i];
-        NSDictionary *cache = [_TTNetworkCache cacheForURL:server.urlString parameters:server.requestParameters] ? : [NSObject new];
-        [cacheArr addObject:cache];
-    }
-    cacheResponse ? cacheResponse(cacheArr) : nil;
     dispatch_group_t group = dispatch_group_create();
     for (int i = 0; i < request.count; i++) {
         onRequest = YES;
         TTNetworkServer *server = request[i];
-        NSObject *response = [NSObject new];
-        NSError *error = [[NSError alloc] initWithDomain:server.urlString code:-10086 userInfo:@{NSLocalizedFailureReasonErrorKey:@"TTNetworkServer批量请求占位符"}];
+        TTLog(@"===%@==%@===%@",server.urlString,server.requestParameters,server.httpMethod);
+        NSNull *null = [NSNull null];
         NSURLSessionDataTask *task = [NSURLSessionDataTask new];
-        [[self successArray] addObject:response];
-        [[self failureArray] addObject:error];
+        [[self successArray] addObject:null];
+        [[self failureArray] addObject:null];
         [[self sessionTaskArray] addObject:task];
         dispatch_group_async(group, dispatch_get_global_queue(0, 0), ^{
             [self startRequest:server group:group];
@@ -784,22 +848,20 @@ static NSMutableArray *_sessionTaskArray;
     dispatch_group_enter(group);
     if ([server.httpMethod isEqualToString:@"GET"]) {
         [TTNetworkServer GET:server.urlString parameters:server.requestParameters cacheResponse:server.cacheResponse succeess:^(NSURLSessionDataTask *task, NSDictionary * responseObject) {
-            NSError *error = [[NSError alloc] initWithDomain:server.urlString code:-10086 userInfo:@{NSLocalizedFailureReasonErrorKey:@"已请求到数据，仅作占位使用"}];
-            [self handlerResultWithTask:task response:responseObject ? : [NSObject new] error:error group:group];
+            [self handlerResultWithTask:task response:responseObject ? : [NSNull null] error:[NSNull null] group:group];
         } failure:^(NSURLSessionDataTask *task, NSError *error) {
-            [self handlerResultWithTask:task response:[NSObject new] error:error group:group];
+            [self handlerResultWithTask:task response:[NSNull null] error:error group:group];
         }];
     } else if ([server.httpMethod isEqualToString:@"POST"]) {
         [TTNetworkServer POST:server.urlString parameters:server.requestParameters cacheResponse:server.cacheResponse success:^(NSURLSessionDataTask *task, NSDictionary * responseObject) {
-            NSError *error = [[NSError alloc] initWithDomain:server.urlString code:-10086 userInfo:@{NSLocalizedFailureReasonErrorKey:@"已请求到数据，仅作占位使用"}];
-            [self handlerResultWithTask:task response:responseObject ? : [NSObject new] error:error group:group];
+            [self handlerResultWithTask:task response:responseObject ? : [NSNull null] error:[NSNull null] group:group];
         } failure:^(NSURLSessionDataTask *task, NSError *error) {
             [self handlerResultWithTask:task response:[NSObject new] error:error group:group];
         }];
     }
 }
 
-+ (void)handlerResultWithTask:(NSURLSessionDataTask *)task response:(id)response error:(NSError *)error group:(dispatch_group_t)group{
++ (void)handlerResultWithTask:(NSURLSessionDataTask *)task response:(id)response error:(id)error group:(dispatch_group_t)group{
     [[self tempArray] enumerateObjectsUsingBlock:^(TTNetworkServer * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
         if ([task.currentRequest.URL.absoluteString containsString:obj.urlString]) {
             [[self successArray] replaceObjectAtIndex:idx withObject:response];
@@ -808,7 +870,7 @@ static NSMutableArray *_sessionTaskArray;
             *stop = YES;
         }
     }];
-     dispatch_group_leave(group);
+    dispatch_group_leave(group);
 }
 
 @end
@@ -837,7 +899,6 @@ static NSMutableArray *_sessionTaskArray;
 #pragma mark - 退出控制器时取消网络请求
 #pragma mark -
 
-static BOOL _cancelAllTasksWhileViewDidDisappear;
 
 @implementation UIViewController (TTNetwork)
 
@@ -863,15 +924,18 @@ static BOOL _cancelAllTasksWhileViewDidDisappear;
 
 - (void)tt_viewDidDisappear:(BOOL)animated{
     [self tt_viewDidDisappear:animated];
-    if (_cancelAllTasksWhileViewDidDisappear) {
+    if (self.cancelAllTasksWhileViewDidDisappear) {
         [self tt_logCancelTask];
-        _cancelAllTasksWhileViewDidDisappear = NO;
         [TTNetworkServer cancelAllTask];
     }
 }
 
-- (void)cancelAllTasksWhileViewDidDisappear:(BOOL)cancel {
-    _cancelAllTasksWhileViewDidDisappear = cancel;
+- (BOOL)cancelAllTasksWhileViewDidDisappear {
+    return [objc_getAssociatedObject(self, _cmd) boolValue];
+}
+
+- (void)setCancelAllTasksWhileViewDidDisappear:(BOOL)cancelAllTasksWhileViewDidDisappear {
+    objc_setAssociatedObject(self, @selector(cancelAllTasksWhileViewDidDisappear), @(cancelAllTasksWhileViewDidDisappear), OBJC_ASSOCIATION_ASSIGN);
 }
 
 - (void)tt_logCancelTask {
@@ -885,6 +949,7 @@ static BOOL _cancelAllTasksWhileViewDidDisappear;
 }
 
 @end
+
 
 #pragma mark - 中文输出
 #pragma mark -
@@ -922,3 +987,4 @@ static BOOL _cancelAllTasksWhileViewDidDisappear;
 }
 @end
 #endif
+

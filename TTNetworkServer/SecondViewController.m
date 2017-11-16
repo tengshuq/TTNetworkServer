@@ -10,7 +10,7 @@
 #import "TTNetworkServer.h"
 
 static NSString *google = @"https://developer.apple.com/download";
-static NSString *const baidu = @"https://www.baidu.com";
+static NSString *const baidu = @"https://www.baidu.com/";//@"http://liveapi.rr-b.cn/api/course/learn";
 
 @interface SecondViewController ()
 
@@ -20,7 +20,7 @@ static NSString *const baidu = @"https://www.baidu.com";
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    [self cancelAllTasksWhileViewDidDisappear:YES];
+    self.cancelAllTasksWhileViewDidDisappear = YES;
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -37,11 +37,18 @@ static NSString *const baidu = @"https://www.baidu.com";
         } failure:^(NSURLSessionDataTask *task, NSError *error) {
             NSLog(@"再也不敢了");
         }];
+        [TTNetworkServer POST:baidu parameters:nil success:^(NSURLSessionDataTask *task, NSDictionary *responseObject) {
+            NSLog(@"hahaha");
+        } failure:^(NSURLSessionDataTask *task, NSError *error) {
+            NSLog(@"呵呵呵呵");
+        }];
+        /*
         [TTNetworkServer GET:baidu parameters:nil succeess:^(NSURLSessionDataTask *task, NSDictionary *responseObject) {
             NSLog(@"翻墙送温暖");
         } failure:^(NSURLSessionDataTask *task, NSError *error) {
             NSLog(@"呵呵呵呵");
         }];
+         */
     }
     [TTNetworkServer cancelTaskWithURL:google];
 }
